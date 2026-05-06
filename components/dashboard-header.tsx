@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -74,47 +76,28 @@ export function DashboardHeader({ role }: DashboardHeaderProps) {
   ])
   const unreadNotifications = notifications.filter((n) => !n.read).length
 
-  // Listen for profile updates
+  const { status } = useSession()
+
   useEffect(() => {
-    const loadProfileData = () => {
-      const savedProfile = localStorage.getItem("gwConnectUserProfile")
-      if (savedProfile) {
-        try {
-          const userData = JSON.parse(savedProfile)
-          setProfileData({
-            name: userData.name || "Alex Johnson",
-            avatar: userData.avatar || "/placeholder.svg?height=40&width=40",
-          })
-        } catch (error) {
-          console.error("Error parsing profile data:", error)
-        }
+    if (status !== "authenticated") return
+    const loadProfileData = async () => {
+      try {
+        const { profile } = await api.myProfile()
+        setProfileData({
+          name: profile.name || "Member",
+          avatar: profile.image || "/placeholder.svg?height=40&width=40",
+        })
+      } catch (error) {
+        console.error("Error loading profile:", error)
       }
     }
-
-    // Load profile data initially
     loadProfileData()
-
-    // Listen for storage events
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "gwConnectUserProfile") {
-        loadProfileData()
-      }
-    }
-
-    // Listen for custom events
-    const handleCustomEvent = () => {
-      loadProfileData()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
+    const handleCustomEvent = () => loadProfileData()
     window.addEventListener("profileUpdated", handleCustomEvent)
-
-    // Clean up
     return () => {
-      window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("profileUpdated", handleCustomEvent)
     }
-  }, [])
+  }, [status])
 
   return (
     <div className="flex items-center gap-4">

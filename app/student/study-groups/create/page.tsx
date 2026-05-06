@@ -100,43 +100,34 @@ export default function CreateStudyGroupPage() {
         return
       }
 
-      // In a real app, you'd call an API to create the group
-      // For demo purposes, we'll use localStorage
-      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
-
-      // Get existing groups
-      const existingGroups = JSON.parse(localStorage.getItem("gwStudyGroups") || "[]")
-
-      // Create new group
-      const newGroup = {
-        id: Date.now().toString(),
-        ...formData,
-        tags,
-        members: 1,
-        creator: "Your Name", // In a real app, this would be the current user
-        creatorAvatar: "/placeholder.svg?height=40&width=40",
-        lastActive: "Just now",
-        created: new Date().toISOString(),
-        nextMeeting: null,
+      const res = await fetch("/api/study-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          course: formData.course,
+          subject: formData.subject,
+          visibility: formData.visibility,
+          tags,
+          permissions: {
+            allowMemberPosts: formData.allowMemberPosts,
+            allowMemberUploads: formData.allowMemberUploads,
+            allowMemberEvents: formData.allowMemberEvents,
+          },
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to create group")
       }
-
-      // Add to localStorage
-      localStorage.setItem("gwStudyGroups", JSON.stringify([...existingGroups, newGroup]))
-
-      // Add to user's groups
-      const userGroups = JSON.parse(localStorage.getItem("gwUserStudyGroups") || "[]")
-      localStorage.setItem("gwUserStudyGroups", JSON.stringify([...userGroups, newGroup.id]))
-
-      // Dispatch custom event to update UI
+      const { group } = await res.json()
       window.dispatchEvent(new Event("gwStudyGroupsUpdated"))
-
       toast({
         title: "Study Group Created",
         description: "Your study group has been created successfully.",
       })
-
-      // Redirect to the new group
-      router.push(`/student/study-groups/${newGroup.id}`)
+      router.push(`/student/study-groups/${group.id}`)
     } catch (error) {
       console.error("Error creating group:", error)
       toast({

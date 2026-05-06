@@ -17,6 +17,7 @@ import { StudyGroupPolls } from "@/components/study-groups/study-group-polls"
 import { StudyGroupSettings } from "@/components/study-groups/study-group-settings"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { api } from "@/lib/api-client"
 
 export default function StudyGroupPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -27,62 +28,48 @@ export default function StudyGroupPage({ params }: { params: { id: string } }) {
   const [isFollowingCreator, setIsFollowingCreator] = useState(false)
 
   useEffect(() => {
-    // In a real app, you'd fetch the group data from an API
     const fetchGroup = async () => {
       try {
-        // Check URL parameters for tab selection
         const urlParams = new URLSearchParams(window.location.search)
         const tabParam = urlParams.get("tab")
-        if (tabParam) {
-          setActiveTab(tabParam)
+        if (tabParam) setActiveTab(tabParam)
+
+        const { group: foundGroup } = await api.getGroup(params.id)
+        if (!foundGroup) throw new Error("not-found")
+
+        const enrichedGroup = {
+          ...foundGroup,
+          creator: foundGroup.creatorName,
+          creatorAvatar: foundGroup.creatorImage,
+          banner: foundGroup.banner || "/placeholder.svg?height=200&width=800",
+          admins: [
+            {
+              id: foundGroup.creatorId,
+              name: foundGroup.creatorName || "Group Creator",
+              avatar: foundGroup.creatorImage || "/placeholder.svg?height=40&width=40",
+            },
+          ],
         }
 
-        // Simulate API call with timeout
-        await new Promise((resolve) => setTimeout(resolve, 800))
+        setGroup(enrichedGroup)
+        setIsMember(!!foundGroup.isMember)
 
-        // Get groups from localStorage
-        const storedGroups = JSON.parse(localStorage.getItem("gwStudyGroups") || "[]")
-        const foundGroup = storedGroups.find((g: any) => g.id === params.id)
-
-        if (foundGroup) {
-          // Add some mock data for the group
-          const enrichedGroup = {
-            ...foundGroup,
-            banner: foundGroup.banner || "/placeholder.svg?height=200&width=800",
-            admins: [
-              {
-                id: "creator",
-                name: foundGroup.creator || "Sarah Williams",
-                avatar: foundGroup.creatorAvatar || "/placeholder.svg?height=40&width=40",
-              },
-            ],
+        if (foundGroup.creatorId) {
+          try {
+            const { following } = await api.isFollowing(foundGroup.creatorId)
+            setIsFollowingCreator(following)
+          } catch {
+            setIsFollowingCreator(false)
           }
-
-          setGroup(enrichedGroup)
-
-          // Check if user is a member
-          const userGroups = JSON.parse(localStorage.getItem("gwUserStudyGroups") || "[]")
-          const memberStatus = userGroups.includes(params.id)
-          setIsMember(memberStatus)
-
-          // Check if following creator
-          const following = JSON.parse(localStorage.getItem("gwUserFollowing") || "[]")
-          setIsFollowingCreator(following.includes("creator"))
-        } else {
-          toast({
-            title: "Study Group Not Found",
-            description: "The requested study group could not be found.",
-            variant: "destructive",
-          })
-          router.push("/student/study-groups")
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching group:", error)
         toast({
-          title: "Error",
-          description: "There was a problem loading the study group.",
+          title: "Study Group Not Found",
+          description: "The requested study group could not be found.",
           variant: "destructive",
         })
+        router.push("/student/study-groups")
       } finally {
         setLoading(false)
       }
@@ -91,64 +78,46 @@ export default function StudyGroupPage({ params }: { params: { id: string } }) {
     fetchGroup()
   }, [params.id, router])
 
-  const handleJoinGroup = () => {
-    // In a real app, you'd call an API to join the group
-    setIsMember(true)
-
-    // Update localStorage for demo purposes
-    const userGroups = JSON.parse(localStorage.getItem("gwUserStudyGroups") || "[]")
-    if (!userGroups.includes(params.id)) {
-      localStorage.setItem("gwUserStudyGroups", JSON.stringify([...userGroups, params.id]))
+  const handleJoinGroup = async () => {
+    try {
+      await api.joinGroup(params.id)
+      setIsMember(true)
+      toast({ title: "Joined Study Group", description: `You have successfully joined "${group.name}".` })
+    } catch (err: any) {
+      toast({ title: "Could not join", description: err.message ?? "Please sign in first.", variant: "destructive" })
     }
-
-    toast({
-      title: "Joined Study Group",
-      description: `You have successfully joined "${group.name}".`,
-    })
   }
 
-  const handleLeaveGroup = () => {
-    // In a real app, you'd call an API to leave the group
-    setIsMember(false)
-
-    // Update localStorage for demo purposes
-    const userGroups = JSON.parse(localStorage.getItem("gwUserStudyGroups") || "[]")
-    localStorage.setItem("gwUserStudyGroups", JSON.stringify(userGroups.filter((id: string) => id !== params.id)))
-
-    toast({
-      title: "Left Study Group",
-      description: `You have left "${group.name}".`,
-    })
-  }
-
-  const handleFollowCreator = () => {
-    // In a real app, you'd call an API to follow the user
-    setIsFollowingCreator(true)
-
-    // Update localStorage for demo purposes
-    const following = JSON.parse(localStorage.getItem("gwUserFollowing") || "[]")
-    if (!following.includes("creator")) {
-      localStorage.setItem("gwUserFollowing", JSON.stringify([...following, "creator"]))
+  const handleLeaveGroup = async () => {
+    try {
+      await api.leaveGroup(params.id)
+      setIsMember(false)
+      toast({ title: "Left Study Group", description: `You have left "${group.name}".` })
+    } catch (err: any) {
+      toast({ title: "Could not leave", description: err.message ?? "Try again.", variant: "destructive" })
     }
-
-    toast({
-      title: "Following User",
-      description: `You are now following ${group.creator}.`,
-    })
   }
 
-  const handleUnfollowCreator = () => {
-    // In a real app, you'd call an API to unfollow the user
-    setIsFollowingCreator(false)
+  const handleFollowCreator = async () => {
+    if (!group?.creatorId) return
+    try {
+      await api.follow(group.creatorId)
+      setIsFollowingCreator(true)
+      toast({ title: "Following User", description: `You are now following ${group.creator}.` })
+    } catch (err: any) {
+      toast({ title: "Could not follow", description: err.message ?? "Try again.", variant: "destructive" })
+    }
+  }
 
-    // Update localStorage for demo purposes
-    const following = JSON.parse(localStorage.getItem("gwUserFollowing") || "[]")
-    localStorage.setItem("gwUserFollowing", JSON.stringify(following.filter((id: string) => id !== "creator")))
-
-    toast({
-      title: "Unfollowed User",
-      description: `You have unfollowed ${group.creator}.`,
-    })
+  const handleUnfollowCreator = async () => {
+    if (!group?.creatorId) return
+    try {
+      await api.unfollow(group.creatorId)
+      setIsFollowingCreator(false)
+      toast({ title: "Unfollowed User", description: `You have unfollowed ${group.creator}.` })
+    } catch (err: any) {
+      toast({ title: "Could not unfollow", description: err.message ?? "Try again.", variant: "destructive" })
+    }
   }
 
   if (loading) {

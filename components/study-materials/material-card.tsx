@@ -31,6 +31,7 @@ import {
   Trash,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { api } from "@/lib/api-client"
 
 interface MaterialCardProps {
   id?: string
@@ -76,11 +77,10 @@ export function MaterialCard(props: MaterialCardProps) {
   const [isFavorite, setIsFavorite] = useState(material.isFavorite || false)
   const [isDownloaded, setIsDownloaded] = useState(false)
 
-  // Check if material is in downloads
+  // Server is the source of truth, but we'll keep a flag in component state.
   useEffect(() => {
-    const downloads = JSON.parse(localStorage.getItem("downloadedMaterials") || "[]")
-    setIsDownloaded(downloads.includes(id))
-  }, [id])
+    setIsFavorite(material.isFavorite || false)
+  }, [material.isFavorite])
 
   const getFileIcon = (fileType: string | undefined) => {
     // Handle undefined or null fileType
@@ -106,44 +106,29 @@ export function MaterialCard(props: MaterialCardProps) {
     }
   }
 
-  const handleToggleFavorite = () => {
-    setIsFavorite(!isFavorite)
-
-    // Update favorites in localStorage
-    const favorites = JSON.parse(localStorage.getItem("favoriteMaterials") || "[]")
-    if (isFavorite) {
-      const index = favorites.indexOf(id)
-      if (index > -1) {
-        favorites.splice(index, 1)
-      }
-    } else {
-      if (!favorites.includes(id)) {
-        favorites.push(id)
-      }
+  const handleToggleFavorite = async () => {
+    const next = !isFavorite
+    setIsFavorite(next)
+    try {
+      const { favorite } = await api.toggleFavorite(id)
+      setIsFavorite(favorite)
+    } catch (err) {
+      console.error("Failed to toggle favorite:", err)
+      setIsFavorite(!next)
     }
-    localStorage.setItem("favoriteMaterials", JSON.stringify(favorites))
   }
 
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-
-    // In a real app, you'd initiate a file download here
-    console.log("Downloading material:", id)
-
-    // Track the download in localStorage
-    const downloads = JSON.parse(localStorage.getItem("downloadedMaterials") || "[]")
-    if (!downloads.includes(id)) {
-      downloads.push(id)
-      localStorage.setItem("downloadedMaterials", JSON.stringify(downloads))
-    }
-
-    setIsDownloaded(true)
-
-    // Simulate download with a timeout
-    setTimeout(() => {
+    try {
+      await api.downloadMaterial(id)
+      setIsDownloaded(true)
       alert(`Downloaded: ${title}`)
-    }, 1000)
+    } catch (err: any) {
+      console.error("Download failed", err)
+      alert(err?.message || "Download failed. Please sign in.")
+    }
   }
 
   const handleCardClick = () => {

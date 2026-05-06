@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 import { MainNav } from "@/components/main-nav"
 import { Footer } from "@/components/footer"
 import { DashboardHeader } from "@/components/dashboard-header"
@@ -58,28 +60,49 @@ export default function ProfilePage() {
   // State to hold student data
   const [student, setStudent] = useState(defaultStudent)
 
-  // Load user data from localStorage on component mount
+  const { status } = useSession()
+
+  // Load profile from the database
   useEffect(() => {
-    const savedUserData = localStorage.getItem("gwConnectUserProfile")
-    if (savedUserData) {
-      try {
-        const userData = JSON.parse(savedUserData)
-        // Merge with default achievements if not present
-        if (!userData.achievements || userData.achievements.length === 0) {
-          userData.achievements = defaultStudent.achievements
-        }
-        setStudent(userData)
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-      }
+    if (status !== "authenticated") return
+    let cancelled = false
+    api
+      .myProfile()
+      .then(({ profile }) => {
+        if (cancelled) return
+        setStudent({
+          ...defaultStudent,
+          ...profile,
+          avatar: profile.image || defaultStudent.avatar,
+          isCurrentUser: true,
+          // We don't ship achievements as a DB table yet, so keep the defaults.
+          achievements: defaultStudent.achievements,
+        })
+      })
+      .catch((err) => console.error("Error loading profile:", err))
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [status])
 
   // Handle profile updates
-  const handleProfileUpdate = (updatedProfile: any) => {
+  const handleProfileUpdate = async (updatedProfile: any) => {
     setStudent(updatedProfile)
-    // Save to localStorage
-    localStorage.setItem("gwConnectUserProfile", JSON.stringify(updatedProfile))
+    try {
+      await api.updateProfile({
+        name: updatedProfile.name,
+        bio: updatedProfile.bio,
+        status: updatedProfile.status,
+        image: updatedProfile.avatar,
+        school: updatedProfile.school,
+        program: updatedProfile.program,
+        year: updatedProfile.year,
+        interests: updatedProfile.interests,
+      })
+      window.dispatchEvent(new Event("profileUpdated"))
+    } catch (err) {
+      console.error("Error saving profile:", err)
+    }
   }
 
   return (

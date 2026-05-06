@@ -193,37 +193,16 @@ export function ProfileHeader({ student, onProfileUpdate }: ProfileHeaderProps) 
   }
 
   useEffect(() => {
-    // Function to load profile data
-    const loadProfileData = () => {
-      const profileData = localStorage.getItem("gwConnectUserProfile")
-      if (profileData) {
-        try {
-          const userData = JSON.parse(profileData)
-          if (userData.avatar) {
-            setAvatarSrc(userData.avatar)
-          }
-          // Other profile data loading...
-        } catch (error) {
-          console.error("Error parsing profile data:", error)
-        }
-      }
+    // Hydrate avatar source whenever the parent passes a fresh student record.
+    if (student.avatar) setAvatarSrc(student.avatar)
+    const onUpdate = () => {
+      // Other components may broadcast profile changes; re-render with whatever
+      // the parent passes us next.
+      if (student.avatar) setAvatarSrc(student.avatar)
     }
-
-    // Load profile data initially
-    loadProfileData()
-
-    // Listen for storage events (including our custom one)
-    const handleStorageChange = () => {
-      loadProfileData()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Clean up
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [])
+    window.addEventListener("profileUpdated", onUpdate)
+    return () => window.removeEventListener("profileUpdated", onUpdate)
+  }, [student.avatar])
 
   return (
     <Card>

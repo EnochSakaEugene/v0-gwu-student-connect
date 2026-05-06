@@ -69,58 +69,38 @@ export default function CreateStudyGroupPage() {
         return
       }
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Get existing groups from localStorage
-      const existingGroups = JSON.parse(localStorage.getItem("gwStudyGroups") || "[]")
-
-      // Create new group object
-      const newGroup = {
-        id: Date.now().toString(),
-        name: groupName,
-        description: groupDescription,
-        course,
-        subject,
-        visibility,
-        tags: tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        members: 1,
-        role: "admin",
-        creator: "Faculty Member", // In a real app, this would be the current user
-        creatorAvatar: "/placeholder.svg?height=40&width=40",
-        lastActive: "Just now",
-        created: new Date().toISOString(),
-        nextMeeting: null,
-        unreadMessages: 0,
-        upcomingEvents: 0,
-        permissions: {
-          allowStudentPosts,
-          allowStudentUploads,
-          allowStudentEvents,
-          notifyDashboard,
-        },
+      const res = await fetch("/api/study-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: groupName,
+          description: groupDescription,
+          course,
+          subject,
+          visibility,
+          tags: tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          permissions: {
+            allowMemberPosts: allowStudentPosts,
+            allowMemberUploads: allowStudentUploads,
+            allowMemberEvents: allowStudentEvents,
+            notifyDashboard,
+          },
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to create group")
       }
-
-      // Add to localStorage
-      localStorage.setItem("gwStudyGroups", JSON.stringify([...existingGroups, newGroup]))
-
-      // Add to user's groups
-      const userGroups = JSON.parse(localStorage.getItem("gwUserStudyGroups") || "[]")
-      localStorage.setItem("gwUserStudyGroups", JSON.stringify([...userGroups, newGroup.id]))
-
-      // Dispatch custom event to update UI
+      const { group } = await res.json()
       window.dispatchEvent(new Event("gwStudyGroupsUpdated"))
-
       toast({
         title: "Study Group Created",
         description: "Your study group has been created successfully.",
       })
-
-      // Redirect to the new group
-      router.push(`/faculty/study-groups/${newGroup.id}`)
+      router.push(`/faculty/study-groups/${group.id}`)
     } catch (error) {
       console.error("Error creating group:", error)
       toast({

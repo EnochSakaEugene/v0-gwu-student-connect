@@ -36,7 +36,7 @@ export default function CreateBlogPage() {
     setVisibility(newVisibility)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       toast({
         title: "Error",
@@ -58,53 +58,29 @@ export default function CreateBlogPage() {
     setIsSubmitting(true)
 
     try {
-      // Create a new blog post
-      const newBlog = {
-        id: `blog-${Date.now()}`,
-        title,
-        excerpt: content.substring(0, 150) + (content.length > 150 ? "..." : ""),
-        content,
-        author: "Current User", // In a real app, this would be the current user's name
-        authorRole: "Computer Science", // In a real app, this would be the current user's role
-        date: "Just now",
-        commentCount: 0,
-        likeCount: 0,
-        tags,
-        visibility,
-        type: postType,
-      }
-
-      // Get existing blogs from localStorage
-      const existingBlogs = localStorage.getItem("blogs")
-      let blogs = []
-
-      if (existingBlogs) {
-        blogs = JSON.parse(existingBlogs)
-      }
-
-      // Add the new blog to the beginning of the array
-      blogs.unshift(newBlog)
-
-      // Save to localStorage
-      localStorage.setItem("blogs", JSON.stringify(blogs))
-
-      // Dispatch an event to notify other components that blogs have been updated
-      window.dispatchEvent(new Event("blogsUpdated"))
-
-      toast({
-        title: "Success",
-        description: "Your blog post has been published",
+      const res = await fetch("/api/blogs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          content,
+          tags,
+          visibility,
+          type: postType === "poll" ? "poll" : "article",
+        }),
       })
-
-      // Redirect to the blogs page
-      setTimeout(() => {
-        router.push("/student/blogs")
-      }, 1500)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to publish")
+      }
+      window.dispatchEvent(new Event("blogsUpdated"))
+      toast({ title: "Success", description: "Your blog post has been published" })
+      setTimeout(() => router.push("/student/blogs"), 800)
     } catch (error) {
       console.error("Error creating blog post:", error)
       toast({
         title: "Error",
-        description: "There was an error publishing your post. Please try again.",
+        description: "There was an error publishing your post. Please make sure you're signed in.",
         variant: "destructive",
       })
     } finally {

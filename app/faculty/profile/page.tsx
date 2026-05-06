@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Button } from "@/components/ui/button"
@@ -41,18 +43,28 @@ export default function FacultyProfilePage() {
     },
   })
 
-  // Load profile data from localStorage if available
+  const { status } = useSession()
+
   useEffect(() => {
-    const savedProfile = localStorage.getItem("gwConnectFacultyProfile")
-    if (savedProfile) {
-      try {
-        const parsedProfile = JSON.parse(savedProfile)
-        setProfileData({ ...profileData, ...parsedProfile })
-      } catch (error) {
-        console.error("Error parsing profile data:", error)
-      }
+    if (status !== "authenticated") return
+    let cancelled = false
+    api
+      .myProfile()
+      .then(({ profile }) => {
+        if (cancelled) return
+        setProfileData((prev) => ({
+          ...prev,
+          ...profile,
+          avatar: profile.image || prev.avatar,
+          courses: profile.courses?.length ? profile.courses : prev.courses,
+          links: { ...prev.links, ...(profile.links || {}) },
+        }))
+      })
+      .catch((err) => console.error("Error loading profile:", err))
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [status])
 
   return (
     <div className="flex min-h-screen flex-col">

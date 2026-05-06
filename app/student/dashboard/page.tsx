@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 import { PageLayout } from "@/components/page-layout"
 import { WelcomePanel } from "@/components/dashboard/welcome-panel"
 import { QuickActions } from "@/components/dashboard/quick-actions"
@@ -11,6 +13,7 @@ import { RecentMaterials } from "@/components/dashboard/recent-materials"
 import { SuggestionsWidget } from "@/components/dashboard/suggestions-widget"
 
 export default function StudentDashboardPage() {
+  const { status } = useSession()
   const [userProfile, setUserProfile] = useState({
     name: "Alex Johnson",
     avatar: "/placeholder.svg?height=40&width=40",
@@ -18,41 +21,25 @@ export default function StudentDashboardPage() {
     year: "Class of 2025",
   })
 
-  // Listen for profile updates
   useEffect(() => {
-    const loadProfileData = () => {
-      const savedProfile = localStorage.getItem("gwConnectUserProfile")
-      if (savedProfile) {
-        try {
-          const userData = JSON.parse(savedProfile)
-          setUserProfile((prev) => ({
-            ...prev,
-            name: userData.name || prev.name,
-            avatar: userData.avatar || prev.avatar,
-            program: userData.program || prev.program,
-            year: userData.year || prev.year,
-          }))
-        } catch (error) {
-          console.error("Error parsing profile data:", error)
-        }
-      }
-    }
-
-    // Load profile data initially
-    loadProfileData()
-
-    // Listen for storage events
-    const handleStorageChange = () => {
-      loadProfileData()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Clean up
+    if (status !== "authenticated") return
+    let cancelled = false
+    api
+      .myProfile()
+      .then(({ profile }) => {
+        if (cancelled) return
+        setUserProfile((prev) => ({
+          name: profile.name || prev.name,
+          avatar: profile.image || prev.avatar,
+          program: profile.program || prev.program,
+          year: profile.year || prev.year,
+        }))
+      })
+      .catch((err) => console.error("Error loading profile:", err))
     return () => {
-      window.removeEventListener("storage", handleStorageChange)
+      cancelled = true
     }
-  }, [])
+  }, [status])
 
   const dashboardStats = {
     courses: 5,
@@ -63,25 +50,19 @@ export default function StudentDashboardPage() {
   return (
     <PageLayout role="student">
       <div className="space-y-6 py-6 px-4 md:px-6">
-        {/* Welcome & Overview Panel */}
         <WelcomePanel student={userProfile} stats={dashboardStats} />
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
           <div className="space-y-6">
             <QuickActions />
             <StudyGroupPreview />
           </div>
-
-          {/* Center Column */}
           <div className="lg:col-span-2 space-y-6">
             <ActivityFeed />
             <RecentMaterials />
           </div>
         </div>
 
-        {/* Bottom Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ScheduleWidget />
           <SuggestionsWidget />

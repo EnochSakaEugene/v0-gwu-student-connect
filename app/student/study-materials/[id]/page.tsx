@@ -132,41 +132,30 @@ export default function StudyMaterialPage({ params }: { params: { id: string } }
     }
   }
 
-  const handleDownload = () => {
-    // In a real app, you'd initiate a file download here
-    console.log("Downloading material:", material.id)
-
-    // Track the download in localStorage
-    const downloads = JSON.parse(localStorage.getItem("downloadedMaterials") || "[]")
-    if (!downloads.includes(material.id)) {
-      downloads.push(material.id)
-      localStorage.setItem("downloadedMaterials", JSON.stringify(downloads))
-    }
-
-    setIsDownloaded(true)
-
-    // Simulate download with a timeout
-    setTimeout(() => {
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(`/api/study-materials/${material.id}/download`, { method: "POST" })
+      if (!res.ok) throw new Error("Download failed")
+      setIsDownloaded(true)
       alert(`Downloaded: ${material.title}`)
-    }, 1000)
+    } catch (err) {
+      console.error(err)
+      alert("Could not record the download. Please sign in and try again.")
+    }
   }
 
-  const handleToggleFavorite = () => {
-    setIsFavorite(!isFavorite)
-
-    // Update favorites in localStorage
-    const favorites = JSON.parse(localStorage.getItem("favoriteMaterials") || "[]")
-    if (isFavorite) {
-      const index = favorites.indexOf(material.id)
-      if (index > -1) {
-        favorites.splice(index, 1)
-      }
-    } else {
-      if (!favorites.includes(material.id)) {
-        favorites.push(material.id)
-      }
+  const handleToggleFavorite = async () => {
+    const next = !isFavorite
+    setIsFavorite(next)
+    try {
+      const res = await fetch(`/api/study-materials/${material.id}/favorite`, { method: "POST" })
+      if (!res.ok) throw new Error("Favorite failed")
+      const { favorite } = await res.json()
+      setIsFavorite(favorite)
+    } catch (err) {
+      console.error(err)
+      setIsFavorite(!next)
     }
-    localStorage.setItem("favoriteMaterials", JSON.stringify(favorites))
   }
 
   return (

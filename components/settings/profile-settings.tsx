@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Camera, Loader2 } from "lucide-react"
 import { saveProfileImage } from "@/utils/image-upload"
+import { api } from "@/lib/api-client"
+import { useSession } from "next-auth/react"
 
 export function ProfileSettings() {
   const [isLoading, setIsLoading] = useState(false)
@@ -27,21 +29,33 @@ export function ProfileSettings() {
     pronouns: "they/them",
   })
 
+  const { status } = useSession()
+
   useEffect(() => {
-    // Load profile data from localStorage if available
-    const savedProfile = localStorage.getItem("gwConnectUserProfile")
-    if (savedProfile) {
-      try {
-        const userData = JSON.parse(savedProfile)
+    if (status !== "authenticated") return
+    let cancelled = false
+    api
+      .myProfile()
+      .then(({ profile }) => {
+        if (cancelled) return
         setProfileData((prev) => ({
           ...prev,
-          ...userData,
+          name: profile.name ?? prev.name,
+          email: profile.email ?? prev.email,
+          avatar: profile.image ?? prev.avatar,
+          program: profile.program ?? prev.program,
+          year: profile.year ?? prev.year,
+          bio: profile.bio ?? prev.bio,
+          interests: Array.isArray(profile.interests)
+            ? profile.interests.join(", ")
+            : prev.interests,
         }))
-      } catch (error) {
-        console.error("Error parsing profile data:", error)
-      }
+      })
+      .catch((err) => console.error("Error loading profile:", err))
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [status])
 
   const handleChange = (field: string, value: string) => {
     setProfileData((prev) => ({
@@ -65,28 +79,25 @@ export function ProfileSettings() {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsLoading(true)
-
-    // Save to localStorage
-    localStorage.setItem("gwConnectUserProfile", JSON.stringify(profileData))
-
-    // Dispatch custom event to notify other components
-    const event = new Event("profileUpdated")
-    window.dispatchEvent(event)
-
-    // Also dispatch storage event for cross-tab communication
-    const storageEvent = new StorageEvent("storage", {
-      key: "gwConnectUserProfile",
-      newValue: JSON.stringify(profileData),
-      url: window.location.href,
-    })
-    window.dispatchEvent(storageEvent)
-
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await api.updateProfile({
+        name: profileData.name,
+        bio: profileData.bio,
+        image: profileData.avatar,
+        program: profileData.program,
+        year: profileData.year,
+        interests: profileData.interests
+          ? profileData.interests.split(",").map((i) => i.trim()).filter(Boolean)
+          : [],
+      })
+      window.dispatchEvent(new Event("profileUpdated"))
+    } catch (err) {
+      console.error("Error saving profile:", err)
+    } finally {
       setIsLoading(false)
-    }, 800)
+    }
   }
 
   return (

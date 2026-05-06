@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { signIn } from "next-auth/react"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { GraduationCap, Users, BookOpen, Shield } from "lucide-react"
 import { MFAVerification } from "@/components/auth/mfa-verification"
 import { Loader2 } from "lucide-react"
+import { api } from "@/lib/api-client"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -21,19 +23,27 @@ export default function LoginPage() {
   const [role, setRole] = useState("student")
   const [showMFA, setShowMFA] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     setIsLoading(true)
 
-    // Simulate authentication
-    setTimeout(() => {
-      setIsLoading(false)
-      console.log("Login submitted:", { email, password, role })
-
-      // Check if user has MFA enabled (for demo, we'll assume all users have MFA)
+    const res = await signIn("credentials", { email, password, redirect: false })
+    setIsLoading(false)
+    if (!res || res.error) {
+      setError("Invalid email or password.")
+      return
+    }
+    // Pull the canonical role from the DB so we can route correctly.
+    try {
+      const { profile } = await api.myProfile()
       setShowMFA(true)
-    }, 1500)
+      setRole(profile.role)
+    } catch {
+      setShowMFA(true)
+    }
   }
 
   const handleMFAVerify = (success: boolean) => {
@@ -77,6 +87,11 @@ export default function LoginPage() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-4">
+                    {error ? (
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {error}
+                      </div>
+                    ) : null}
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                       <Input

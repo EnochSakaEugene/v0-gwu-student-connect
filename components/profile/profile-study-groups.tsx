@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,20 +18,20 @@ interface ProfileStudyGroupsProps {
 export function ProfileStudyGroups({ student, limit }: ProfileStudyGroupsProps) {
   const [groups, setGroups] = useState<any[]>([])
 
+  const { status: sessionStatus } = useSession()
+
   useEffect(() => {
-    // In a real app, you'd fetch the user's study groups from an API
-    const fetchUserGroups = () => {
+    let cancelled = false
+    const fetchUserGroups = async () => {
       try {
-        // Get user's joined group IDs
-        const userGroupIds = JSON.parse(localStorage.getItem("gwUserStudyGroups") || "[]")
+        let joinedGroups: any[] = []
+        if (sessionStatus === "authenticated") {
+          const { groups } = await api.myGroups()
+          joinedGroups = groups
+        }
 
-        // Get all groups
-        const allGroups = JSON.parse(localStorage.getItem("gwStudyGroups") || "[]")
+        if (cancelled) return
 
-        // Filter to only include joined groups
-        const joinedGroups = allGroups.filter((group: any) => userGroupIds.includes(group.id))
-
-        // If no joined groups, use default mock data
         if (joinedGroups.length === 0) {
           setGroups([
             {
@@ -122,10 +124,9 @@ export function ProfileStudyGroups({ student, limit }: ProfileStudyGroupsProps) 
             },
           ])
         } else {
-          // Enrich joined groups with additional data
           const enrichedGroups = joinedGroups.map((group: any) => ({
             ...group,
-            isAdmin: group.creator === student.name,
+            isAdmin: group.role === "admin",
             isMember: true,
             banner: group.banner || "/placeholder.svg?height=100&width=300",
             admins: [
@@ -136,39 +137,22 @@ export function ProfileStudyGroups({ student, limit }: ProfileStudyGroupsProps) 
               },
             ],
           }))
-
           setGroups(enrichedGroups)
         }
       } catch (error) {
         console.error("Error fetching user groups:", error)
-        // Fallback to empty array
         setGroups([])
       }
     }
 
     fetchUserGroups()
-
-    // Listen for storage changes to update the groups list
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "gwUserStudyGroups" || e.key === "gwStudyGroups") {
-        fetchUserGroups()
-      }
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Custom event for local updates
-    const handleCustomEvent = () => {
-      fetchUserGroups()
-    }
-
+    const handleCustomEvent = () => fetchUserGroups()
     window.addEventListener("gwStudyGroupsUpdated", handleCustomEvent)
-
     return () => {
-      window.removeEventListener("storage", handleStorageChange)
+      cancelled = true
       window.removeEventListener("gwStudyGroupsUpdated", handleCustomEvent)
     }
-  }, [student.id, student.name, student.avatar])
+  }, [sessionStatus, student.id, student.name, student.avatar])
 
   const displayGroups = limit ? groups.slice(0, limit) : groups
 

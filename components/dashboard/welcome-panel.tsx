@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -40,42 +42,29 @@ export function WelcomePanel({
   const [isLoading, setIsLoading] = useState(false)
   const [studentProfile, setStudentProfile] = useState(student)
 
-  // Listen for profile updates
+  const { status } = useSession()
+
   useEffect(() => {
-    // Initial load from localStorage
-    const loadProfileData = () => {
-      const savedProfile = localStorage.getItem("gwConnectUserProfile")
-      if (savedProfile) {
-        try {
-          const userData = JSON.parse(savedProfile)
-          setStudentProfile((prev) => ({
-            ...prev,
-            name: userData.name || prev.name,
-            avatar: userData.avatar || prev.avatar,
-            program: userData.program || prev.program,
-            year: userData.year || prev.year,
-          }))
-        } catch (error) {
-          console.error("Error parsing profile data:", error)
-        }
+    if (status !== "authenticated") return
+    const loadProfileData = async () => {
+      try {
+        const { profile } = await api.myProfile()
+        setStudentProfile((prev) => ({
+          ...prev,
+          name: profile.name || prev.name,
+          avatar: profile.image || prev.avatar,
+          program: profile.program || prev.program,
+          year: profile.year || prev.year,
+        }))
+      } catch (error) {
+        console.error("Error loading profile:", error)
       }
     }
-
-    // Load profile data initially
     loadProfileData()
-
-    // Listen for storage events
-    const handleStorageChange = () => {
-      loadProfileData()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Clean up
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [])
+    const onUpdate = () => loadProfileData()
+    window.addEventListener("profileUpdated", onUpdate)
+    return () => window.removeEventListener("profileUpdated", onUpdate)
+  }, [status])
 
   return (
     <Card className="border-none shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">

@@ -1,8 +1,10 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api-client"
 
 export type EventStatus = "going" | "maybe" | "not-going" | "active"
 
@@ -19,188 +21,87 @@ export interface Event {
   isFeatured?: boolean
   status?: EventStatus
   organizer?: {
-    name: string
-    image: string
-    department: string
-    email: string
-  }
+    id?: string
+    name?: string | null
+    image?: string | null
+    department?: string | null
+    email?: string | null
+  } | null
 }
 
 interface EventsContextType {
   events: Event[]
   myEvents: Event[]
-  addEvent: (event: Omit<Event, "id" | "attendees">) => void
-  rsvpToEvent: (eventId: string, status: EventStatus) => void
+  loading: boolean
+  refresh: () => Promise<void>
+  addEvent: (event: Omit<Event, "id" | "attendees">) => Promise<Event | null>
+  rsvpToEvent: (eventId: string, status: EventStatus) => Promise<void>
   getEventById: (id: string) => Event | undefined
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined)
 
 export function EventsProvider({ children }: { children: React.ReactNode }) {
-  // Initial events data
-  const initialEvents = [
-    {
-      id: "1",
-      title: "Career Fair: Tech & Engineering",
-      date: "December 15, 2025",
-      time: "10:00 AM - 4:00 PM",
-      location: "Marvin Center Grand Ballroom",
-      category: "Career",
-      attendees: 245,
-      isFeatured: true,
-      image: "/images/unknown.png",
-      description:
-        "Join us for the annual Tech & Engineering Career Fair! Connect with over 50 employers from various industries looking to hire GW students and alumni for internships and full-time positions. Bring multiple copies of your resume and dress professionally.",
-    },
-    {
-      id: "2",
-      title: "Research Symposium: Undergraduate Projects",
-      date: "December 20, 2025",
-      time: "1:00 PM - 5:00 PM",
-      location: "Science & Engineering Hall",
-      category: "Academic",
-      attendees: 120,
-      isFeatured: true,
-      image: "/images/unknown-2.png",
-      description:
-        "Showcase your research at the annual Undergraduate Research Symposium. This event provides an opportunity for undergraduate students to present their research projects to faculty, peers, and the GW community.",
-    },
-    {
-      id: "3",
-      title: "Alumni Networking Event",
-      date: "January 5, 2026",
-      time: "6:00 PM - 8:00 PM",
-      location: "University Hall",
-      category: "Networking",
-      attendees: 85,
-      isFeatured: false,
-      description:
-        "Connect with GW alumni from various industries and build your professional network. Light refreshments will be served.",
-    },
-    {
-      id: "4",
-      title: "Workshop: Resume Building & Interview Skills",
-      date: "December 18, 2025",
-      time: "2:00 PM - 4:00 PM",
-      location: "Virtual (Zoom)",
-      category: "Career",
-      attendees: 62,
-      isFeatured: false,
-      description:
-        "Learn how to create a standout resume and ace your interviews with tips from career services professionals.",
-    },
-    {
-      id: "5",
-      title: "Student Organization Fair",
-      date: "December 25, 2025",
-      time: "11:00 AM - 3:00 PM",
-      location: "Kogan Plaza",
-      category: "Clubs",
-      attendees: 180,
-      isFeatured: false,
-      description: "Explore the diverse range of student organizations at GW and find the perfect club to join.",
-    },
-  ]
-
-  const [events, setEvents] = useState<Event[]>(initialEvents)
-  const [myEvents, setMyEvents] = useState<Event[]>([])
   const router = useRouter()
+  const { status } = useSession()
+  const [events, setEvents] = useState<Event[]>([])
+  const [myEvents, setMyEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Load events from localStorage on component mount
-  useEffect(() => {
+  const refresh = useCallback(async () => {
+    setLoading(true)
     try {
-      const storedEvents = localStorage.getItem("events")
-      const storedMyEvents = localStorage.getItem("myEvents")
-
-      if (storedEvents) {
-        setEvents(JSON.parse(storedEvents))
+      const { events } = await api.listEvents()
+      setEvents(events as Event[])
+      if (status === "authenticated") {
+        try {
+          const mine = await api.myEvents()
+          setMyEvents(mine.events as Event[])
+        } catch {
+          setMyEvents([])
+        }
+      } else {
+        setMyEvents([])
       }
-
-      if (storedMyEvents) {
-        setMyEvents(JSON.parse(storedMyEvents))
-      }
-    } catch (error) {
-      console.error("Error loading events from localStorage:", error)
+    } catch (err) {
+      console.error("Failed to load events", err)
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }, [status])
 
-  // Save events to localStorage whenever they change
   useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  const addEvent = async (event: Omit<Event, "id" | "attendees">) => {
     try {
-      localStorage.setItem("events", JSON.stringify(events))
-    } catch (error) {
-      console.error("Error saving events to localStorage:", error)
+      const { event: created } = await api.createEvent(event)
+      await refresh()
+      return created as Event
+    } catch (err) {
+      console.error(err)
+      return null
     }
-  }, [events])
+  }
 
-  // Save myEvents to localStorage whenever they change
-  useEffect(() => {
+  const rsvpToEvent = async (eventId: string, ourStatus: EventStatus) => {
+    if (ourStatus === "active") return
     try {
-      localStorage.setItem("myEvents", JSON.stringify(myEvents))
-    } catch (error) {
-      console.error("Error saving myEvents to localStorage:", error)
+      await api.rsvpEvent(eventId, ourStatus)
+      await refresh()
+      router.push("/student/events/my-events")
+    } catch (err) {
+      console.error(err)
+      alert("Could not save your RSVP. Please make sure you're signed in.")
     }
-  }, [myEvents])
-
-  // Add a new event
-  const addEvent = (event: Omit<Event, "id" | "attendees">) => {
-    const newEvent: Event = {
-      ...event,
-      id: `${Date.now()}`, // Generate a unique ID
-      attendees: 0, // Start with 0 attendees
-      status: "active", // Set status to active for created events
-    }
-
-    setEvents((prevEvents) => [...prevEvents, newEvent])
   }
 
-  // RSVP to an event
-  const rsvpToEvent = (eventId: string, status: EventStatus) => {
-    const event = events.find((e) => e.id === eventId)
-
-    if (!event) {
-      console.error(`Event with ID ${eventId} not found`)
-      return
-    }
-
-    // Update attendees count if status is "going"
-    if (status === "going") {
-      setEvents((prevEvents) => prevEvents.map((e) => (e.id === eventId ? { ...e, attendees: e.attendees + 1 } : e)))
-    }
-
-    // Check if event is already in myEvents
-    const existingEventIndex = myEvents.findIndex((e) => e.id === eventId)
-
-    if (existingEventIndex >= 0) {
-      // Update existing event status
-      setMyEvents((prevMyEvents) => prevMyEvents.map((e, i) => (i === existingEventIndex ? { ...e, status } : e)))
-    } else {
-      // Add event to myEvents with the specified status
-      const eventWithStatus = { ...event, status }
-      setMyEvents((prevMyEvents) => [...prevMyEvents, eventWithStatus])
-    }
-
-    // Show success message
-    alert(`You've successfully RSVP'd to "${event.title}" as "${status}"`)
-
-    // Redirect to My Events page
-    router.push("/student/events/my-events")
-  }
-
-  // Get event by ID
-  const getEventById = (id: string) => {
-    return events.find((event) => event.id === id)
-  }
+  const getEventById = (id: string) => events.find((event) => event.id === id)
 
   return (
     <EventsContext.Provider
-      value={{
-        events,
-        myEvents,
-        addEvent,
-        rsvpToEvent,
-        getEventById,
-      }}
+      value={{ events, myEvents, loading, refresh, addEvent, rsvpToEvent, getEventById }}
     >
       {children}
     </EventsContext.Provider>
@@ -210,9 +111,7 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 export function useEvents() {
   const context = useContext(EventsContext)
   if (context === undefined) {
-    throw new Error(
-      "useEvents must be used within an EventsProvider. Make sure you have wrapped your component tree with EventsProvider.",
-    )
+    throw new Error("useEvents must be used within an EventsProvider.")
   }
   return context
 }

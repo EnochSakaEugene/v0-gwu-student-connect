@@ -24,6 +24,7 @@ import {
   UserPlus,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { api } from "@/lib/api-client"
 
 export default function StudyGroupsPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -34,118 +35,15 @@ export default function StudyGroupsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Initialize study groups in localStorage if they don't exist
-    const storedGroups = localStorage.getItem("gwStudyGroups")
-
-    if (!storedGroups) {
-      // Mock study groups data
-      const initialGroups = [
-        {
-          id: "1",
-          name: "Calculus II Study Group",
-          description: "A group for students taking MATH 220 to collaborate on problem sets and prepare for exams.",
-          course: "MATH 220",
-          subject: "Mathematics",
-          members: 15,
-          visibility: "public",
-          creator: "Sarah Williams",
-          creatorAvatar: "/placeholder.svg?height=40&width=40",
-          lastActive: "2 hours ago",
-          tags: ["Calculus", "Mathematics", "Problem Sets"],
-          nextMeeting: "Tomorrow, 5:00 PM",
-          created: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          name: "Computer Science Fundamentals",
-          description: "Discussing algorithms, data structures, and programming concepts for CS 101.",
-          course: "CS 101",
-          subject: "Computer Science",
-          members: 12,
-          visibility: "public",
-          creator: "Alex Johnson",
-          creatorAvatar: "/placeholder.svg?height=40&width=40",
-          lastActive: "1 day ago",
-          tags: ["Programming", "Algorithms", "Data Structures"],
-          nextMeeting: "Thursday, 6:30 PM",
-          created: new Date().toISOString(),
-        },
-        {
-          id: "3",
-          name: "Organic Chemistry Lab Prep",
-          description: "Preparing for organic chemistry lab experiments and discussing procedures.",
-          course: "CHEM 202",
-          subject: "Chemistry",
-          members: 8,
-          visibility: "private",
-          creator: "Michael Chen",
-          creatorAvatar: "/placeholder.svg?height=40&width=40",
-          lastActive: "3 hours ago",
-          tags: ["Chemistry", "Lab", "Organic Chemistry"],
-          nextMeeting: "Friday, 3:00 PM",
-          created: new Date().toISOString(),
-        },
-        {
-          id: "4",
-          name: "Physics Mechanics Group",
-          description: "Working through mechanics problems and discussing concepts from PHYS 101.",
-          course: "PHYS 101",
-          subject: "Physics",
-          members: 10,
-          visibility: "public",
-          creator: "Emily Rodriguez",
-          creatorAvatar: "/placeholder.svg?height=40&width=40",
-          lastActive: "Just now",
-          tags: ["Physics", "Mechanics", "Problem Solving"],
-          nextMeeting: "Wednesday, 4:00 PM",
-          created: new Date().toISOString(),
-        },
-        {
-          id: "5",
-          name: "Economics Research Discussion",
-          description: "Discussing current economic research papers and theories for advanced economics students.",
-          course: "ECON 350",
-          subject: "Economics",
-          members: 6,
-          visibility: "invite-only",
-          creator: "Prof. James Wilson",
-          creatorAvatar: "/placeholder.svg?height=40&width=40",
-          lastActive: "5 hours ago",
-          tags: ["Economics", "Research", "Theory"],
-          nextMeeting: "Next Monday, 2:00 PM",
-          created: new Date().toISOString(),
-        },
-        {
-          id: "6",
-          name: "Psychology Study Group",
-          description: "Reviewing concepts and preparing for exams in Intro to Psychology.",
-          course: "PSYC 101",
-          subject: "Psychology",
-          members: 20,
-          visibility: "public",
-          creator: "Lisa Thompson",
-          creatorAvatar: "/placeholder.svg?height=40&width=40",
-          lastActive: "Yesterday",
-          tags: ["Psychology", "Behavioral Science", "Exam Prep"],
-          nextMeeting: "Saturday, 11:00 AM",
-          created: new Date().toISOString(),
-        },
-      ]
-
-      localStorage.setItem("gwStudyGroups", JSON.stringify(initialGroups))
-      setStudyGroups(initialGroups)
-    } else {
-      setStudyGroups(JSON.parse(storedGroups))
-    }
-
-    // Initialize user study groups if they don't exist
-    if (!localStorage.getItem("gwUserStudyGroups")) {
-      localStorage.setItem("gwUserStudyGroups", JSON.stringify([]))
-    }
-
-    // Initialize user following if it doesn't exist
-    if (!localStorage.getItem("gwUserFollowing")) {
-      localStorage.setItem("gwUserFollowing", JSON.stringify([]))
+    let cancelled = false
+    api
+      .listGroups()
+      .then(({ groups }) => {
+        if (!cancelled) setStudyGroups(groups)
+      })
+      .catch((err) => console.error("Failed to load groups", err))
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -153,7 +51,7 @@ export default function StudyGroupsPage() {
   const filteredGroups = studyGroups.filter((group) => {
     const matchesSearch =
       group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (group.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       group.course.toLowerCase().includes(searchQuery.toLowerCase()) ||
       group.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
 
@@ -166,10 +64,11 @@ export default function StudyGroupsPage() {
   // Sort filtered groups
   const sortedGroups = [...filteredGroups].sort((a, b) => {
     if (sortBy === "recent") {
-      // This is a mock sort - in a real app, you'd use actual timestamps
-      return a.lastActive === "Just now" ? -1 : b.lastActive === "Just now" ? 1 : -1
+      const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime()
+      const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime()
+      return tb - ta
     } else if (sortBy === "members") {
-      return b.members - a.members
+      return (b.members ?? 0) - (a.members ?? 0)
     } else if (sortBy === "alphabetical") {
       return a.name.localeCompare(b.name)
     }

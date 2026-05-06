@@ -1,5 +1,6 @@
 "use client"
 
+import { api } from "@/lib/api-client"
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -168,44 +169,25 @@ const polls = [
 ]
 
 export default function StudentBlogsPage() {
-  // Initialize blogs from localStorage or use mock data
-  const initializeBlogs = () => {
-    if (typeof window !== "undefined") {
-      const storedBlogs = localStorage.getItem("blogs")
-      if (storedBlogs) {
-        try {
-          return JSON.parse(storedBlogs)
-        } catch (e) {
-          console.error("Error parsing blogs from localStorage:", e)
-        }
-      }
-    }
-    return initialBlogs
-  }
-
   // Client component wrapper
   function BlogsContent() {
-    const [blogs, setBlogs] = useState(initializeBlogs())
+    const [blogs, setBlogs] = useState<any[]>([])
+
+    const loadBlogs = async () => {
+      try {
+        const { blogs } = await api.listBlogs()
+        setBlogs(blogs.length ? blogs : initialBlogs)
+      } catch (err) {
+        console.error("Failed to load blogs", err)
+        setBlogs(initialBlogs)
+      }
+    }
 
     useEffect(() => {
-      // Initialize blogs from localStorage
-      setBlogs(initializeBlogs())
-
-      // Listen for blog updates
-      const handleBlogUpdate = () => {
-        setBlogs(initializeBlogs())
-      }
-
+      loadBlogs()
+      const handleBlogUpdate = () => loadBlogs()
       window.addEventListener("blogsUpdated", handleBlogUpdate)
-
-      // Store initial blogs if not already in localStorage
-      if (!localStorage.getItem("blogs")) {
-        localStorage.setItem("blogs", JSON.stringify(initialBlogs))
-      }
-
-      return () => {
-        window.removeEventListener("blogsUpdated", handleBlogUpdate)
-      }
+      return () => window.removeEventListener("blogsUpdated", handleBlogUpdate)
     }, [])
 
     return (

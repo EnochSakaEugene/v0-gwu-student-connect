@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Download, Eye, FileText, Heart, ImageIcon, Presentation, BookOpen } from "lucide-react"
+import { api } from "@/lib/api-client"
 
 interface MaterialListItemProps {
   id: string
@@ -57,47 +58,31 @@ export function MaterialListItem({
     }
   }
 
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-
-    // In a real app, you'd initiate a file download here
-    console.log("Downloading material:", id)
-
-    // Track the download in localStorage
-    const downloads = JSON.parse(localStorage.getItem("downloadedMaterials") || "[]")
-    if (!downloads.includes(id)) {
-      downloads.push(id)
-      localStorage.setItem("downloadedMaterials", JSON.stringify(downloads))
-    }
-
-    setIsDownloaded(true)
-
-    // Simulate download with a timeout
-    setTimeout(() => {
+    try {
+      await api.downloadMaterial(id)
+      setIsDownloaded(true)
       alert(`Downloaded: ${title}`)
-    }, 1000)
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.message || "Download failed. Please sign in.")
+    }
   }
 
-  const handleToggleFavorite = (e: React.MouseEvent) => {
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-
-    setIsFavorite(!isFavorite)
-
-    // Update favorites in localStorage
-    const favorites = JSON.parse(localStorage.getItem("favoriteMaterials") || "[]")
-    if (isFavorite) {
-      const index = favorites.indexOf(id)
-      if (index > -1) {
-        favorites.splice(index, 1)
-      }
-    } else {
-      if (!favorites.includes(id)) {
-        favorites.push(id)
-      }
+    const next = !isFavorite
+    setIsFavorite(next)
+    try {
+      const { favorite } = await api.toggleFavorite(id)
+      setIsFavorite(favorite)
+    } catch (err) {
+      console.error(err)
+      setIsFavorite(!next)
     }
-    localStorage.setItem("favoriteMaterials", JSON.stringify(favorites))
   }
 
   return (

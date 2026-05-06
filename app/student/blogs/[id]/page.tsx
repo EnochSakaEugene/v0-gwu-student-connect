@@ -35,31 +35,21 @@ export default function BlogPost({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch blog from localStorage
-    const fetchBlog = () => {
+    const fetchBlog = async () => {
       try {
-        const storedBlogs = localStorage.getItem("blogs")
-        if (storedBlogs) {
-          const blogs = JSON.parse(storedBlogs)
-          const foundBlog = blogs.find((b: BlogPost) => b.id === params.id)
-
-          if (foundBlog) {
-            setBlog(foundBlog)
-          } else {
-            toast({
-              title: "Blog not found",
-              description: "The blog post you're looking for doesn't exist.",
-              variant: "destructive",
-            })
-            setTimeout(() => router.push("/student/blogs"), 2000)
-          }
-        } else {
+        const res = await fetch(`/api/blogs/${params.id}`, { cache: "no-store" })
+        if (res.ok) {
+          const { blog } = await res.json()
+          setBlog(blog)
+        } else if (res.status === 404) {
           toast({
-            title: "No blogs found",
-            description: "There are no blog posts available.",
+            title: "Blog not found",
+            description: "The blog post you're looking for doesn't exist.",
             variant: "destructive",
           })
           setTimeout(() => router.push("/student/blogs"), 2000)
+        } else {
+          throw new Error(`Request failed: ${res.status}`)
         }
       } catch (error) {
         console.error("Error fetching blog:", error)

@@ -78,51 +78,56 @@ export function RegistrationForm({ role, onBack }: RegistrationFormProps) {
   }
 
   // Update the handleSubmit function to show MFA setup
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // In a real app, you would submit the form data to the server
-    console.log("Form submitted:", { role, ...formData })
-
-    // Store user data in localStorage for profile use
-    const userData = {
-      id: "user-" + Date.now(),
-      name: `${formData.firstName} ${formData.lastName}`,
-      email: formData.email,
-      gwid: formData.gwid,
-      school: formData.school,
-      role: role,
-      // Role-specific data
-      ...(role === "Student" && {
-        program: formData.program,
-        year: formData.year,
-      }),
-      ...(role === "Faculty" && {
-        department: formData.department,
-        position: formData.position,
-        researchAreas: formData.researchAreas,
-        officeLocation: formData.officeLocation,
-        officeHours: formData.officeHours,
-      }),
-      ...(role === "Alumni" && {
-        graduationYear: formData.graduationYear,
-        company: formData.company,
-        jobTitle: formData.jobTitle,
-        industry: formData.industry,
-        location: formData.location,
-      }),
-      interests: formData.interests,
-      status: "",
-      avatar: "/placeholder.svg?height=128&width=128",
-      isCurrentUser: true,
-      achievements: [],
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match.")
+      return
+    }
+    if (formData.password.length < 8) {
+      alert("Password must be at least 8 characters.")
+      return
     }
 
-    localStorage.setItem("gwConnectUserProfile", JSON.stringify(userData))
-    localStorage.setItem("gwConnectUserRole", role)
-
-    // Show MFA setup instead of redirecting immediately
-    setShowMFASetup(true)
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          role: role.toLowerCase(),
+          gwid: formData.gwid,
+          school: formData.school,
+          program: formData.program || undefined,
+          year: formData.year || undefined,
+          department: formData.department || undefined,
+          position: formData.position || undefined,
+          researchAreas: formData.researchAreas || undefined,
+          officeLocation: formData.officeLocation || undefined,
+          officeHours: formData.officeHours || undefined,
+          graduationYear: formData.graduationYear || undefined,
+          company: formData.company || undefined,
+          jobTitle: formData.jobTitle || undefined,
+          industry: formData.industry || undefined,
+          location: formData.location || undefined,
+          interests: formData.interests,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || "Registration failed.")
+        return
+      }
+      // Show MFA setup before sending the user to login.
+      setShowMFASetup(true)
+    } catch (err) {
+      console.error(err)
+      alert("Could not reach the server. Please try again.")
+    }
   }
 
   // Add handlers for MFA setup
