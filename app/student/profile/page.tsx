@@ -19,17 +19,19 @@ import { ProfilePersonalPosts } from "@/components/profile/profile-personal-post
 import { ProfileAppointments } from "@/components/profile/profile-appointments"
 
 export default function ProfilePage() {
-  // Default student data
+  const { data: session, status } = useSession()
+
+  // Default UI fallback
   const defaultStudent = {
-    id: "current-user",
-    name: "Alex Johnson",
-    email: "alex.johnson@gwconnect.edu",
-    gwid: "G12345678",
-    school: "College of Arts & Sciences",
-    program: "Psychology",
-    year: "Class of 2025",
-    interests: ["Cognitive Psychology", "Research Methods", "Mental Health", "Data Science"],
-    status: "Working on my research project about digital interventions for anxiety disorders.",
+    id: "",
+    name: "",
+    email: "",
+    gwid: "",
+    school: "",
+    program: "",
+    year: "",
+    interests: [],
+    status: "",
     avatar: "/placeholder.svg?height=128&width=128",
     isCurrentUser: true,
     achievements: [
@@ -57,37 +59,39 @@ export default function ProfilePage() {
     ],
   }
 
-  // State to hold student data
   const [student, setStudent] = useState(defaultStudent)
 
-  const { status } = useSession()
-
-  // Load profile from the database
+  // Load real profile
   useEffect(() => {
     if (status !== "authenticated") return
+
     let cancelled = false
+
     api
       .myProfile()
       .then(({ profile }) => {
         if (cancelled) return
+
         setStudent({
           ...defaultStudent,
           ...profile,
           avatar: profile.image || defaultStudent.avatar,
+          interests: profile.interests || [],
           isCurrentUser: true,
-          // We don't ship achievements as a DB table yet, so keep the defaults.
           achievements: defaultStudent.achievements,
         })
       })
       .catch((err) => console.error("Error loading profile:", err))
+
     return () => {
       cancelled = true
     }
   }, [status])
 
-  // Handle profile updates
+  // Save profile updates
   const handleProfileUpdate = async (updatedProfile: any) => {
     setStudent(updatedProfile)
+
     try {
       await api.updateProfile({
         name: updatedProfile.name,
@@ -99,6 +103,7 @@ export default function ProfilePage() {
         year: updatedProfile.year,
         interests: updatedProfile.interests,
       })
+
       window.dispatchEvent(new Event("profileUpdated"))
     } catch (err) {
       console.error("Error saving profile:", err)
@@ -113,10 +118,12 @@ export default function ProfilePage() {
           <DashboardHeader role="student" />
         </div>
       </header>
+
       <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10 py-8">
         <aside className="fixed top-14 z-30 -ml-2 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 md:sticky md:block">
           <DashboardNav role="student" />
         </aside>
+
         <main className="flex w-full flex-col overflow-hidden">
           <div className="flex-1 space-y-6">
             <ProfileHeader student={student} onProfileUpdate={handleProfileUpdate} />
@@ -132,6 +139,7 @@ export default function ProfilePage() {
                 <TabsTrigger value="appointments">Appointments</TabsTrigger>
                 <TabsTrigger value="achievements">Achievements</TabsTrigger>
               </TabsList>
+
               <TabsContent value="overview" className="mt-6">
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   <ProfileActivityFeed student={student} />
@@ -142,24 +150,31 @@ export default function ProfilePage() {
                   <ProfileAppointments student={student} limit={3} />
                 </div>
               </TabsContent>
+
               <TabsContent value="posts" className="mt-6">
                 <ProfilePersonalPosts student={student} />
               </TabsContent>
+
               <TabsContent value="materials" className="mt-6">
                 <ProfileStudyMaterials student={student} />
               </TabsContent>
+
               <TabsContent value="groups" className="mt-6">
                 <ProfileStudyGroups student={student} />
               </TabsContent>
+
               <TabsContent value="blogs" className="mt-6">
                 <ProfileBlogs student={student} />
               </TabsContent>
+
               <TabsContent value="events" className="mt-6">
                 <ProfileEvents student={student} />
               </TabsContent>
+
               <TabsContent value="appointments" className="mt-6">
                 <ProfileAppointments student={student} />
               </TabsContent>
+
               <TabsContent value="achievements" className="mt-6">
                 <ProfileAchievements student={student} />
               </TabsContent>
@@ -167,6 +182,7 @@ export default function ProfilePage() {
           </div>
         </main>
       </div>
+
       <Footer />
     </div>
   )

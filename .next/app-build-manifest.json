@@ -26,25 +26,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/api/auth/[...nextauth]/route.js"
     ],
-    "/api/profile/me/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/profile/me/route.js"
-    ],
     "/api/events/mine/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/events/mine/route.js"
     ],
-    "/register/page": [
+    "/api/profile/me/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/register/page.js"
-    ],
-    "/api/auth/register/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/auth/register/route.js"
+      "static/chunks/app/api/profile/me/route.js"
     ],
     "/student/dashboard/loading": [
       "static/chunks/webpack.js",
@@ -56,6 +46,16 @@
       "static/chunks/main-app.js",
       "static/chunks/app/student/dashboard/page.js"
     ],
+    "/register/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/register/page.js"
+    ],
+    "/api/auth/register/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/auth/register/route.js"
+    ],
     "/student/profile/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -65,41 +65,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/study-groups/mine/route.js"
-    ],
-    "/student/study-groups/loading": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/student/study-groups/loading.js"
-    ],
-    "/student/study-groups/[id]/loading": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/student/study-groups/[id]/loading.js"
-    ],
-    "/student/study-groups/[id]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/student/study-groups/[id]/page.js"
-    ],
-    "/api/study-groups/[id]/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/study-groups/[id]/route.js"
-    ],
-    "/student/study-groups/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/student/study-groups/page.js"
-    ],
-    "/api/study-groups/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/study-groups/route.js"
-    ],
-    "/_not-found/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
     ]
   }
 }
