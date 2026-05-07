@@ -1,0 +1,15 @@
+{
+  "/api/profile/me/route": "app/api/profile/me/route.js",
+  "/api/study-groups/mine/route": "app/api/study-groups/mine/route.js",
+  "/api/study-groups/route": "app/api/study-groups/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/study-groups/[id]/route": "app/api/study-groups/[id]/route.js",
+  "/api/events/route": "app/api/events/route.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/events/mine/route": "app/api/events/mine/route.js",
+  "/register/page": "app/register/page.js",
+  "/student/dashboard/page": "app/student/dashboard/page.js",
+  "/student/profile/page": "app/student/profile/page.js",
+  "/student/study-groups/page": "app/student/study-groups/page.js",
+  "/student/study-groups/[id]/page": "app/student/study-groups/[id]/page.js"
+}
