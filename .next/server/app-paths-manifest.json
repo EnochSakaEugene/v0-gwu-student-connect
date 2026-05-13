@@ -1,6 +1,10 @@
 {
-  "/student/profile/page": "app/student/profile/page.js",
-  "/student/dashboard/page": "app/student/dashboard/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/events/route": "app/api/events/route.js",
+  "/api/events/mine/route": "app/api/events/mine/route.js",
   "/login/page": "app/login/page.js",
-  "/register/page": "app/register/page.js"
+  "/register/page": "app/register/page.js",
+  "/student/dashboard/page": "app/student/dashboard/page.js",
+  "/student/profile/page": "app/student/profile/page.js"
 }
